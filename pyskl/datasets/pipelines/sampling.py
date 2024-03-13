@@ -4,8 +4,119 @@ import numpy as np
 
 from pyskl.utils import warning_r0
 from ..builder import PIPELINES
+import torch
 
+@PIPELINES.register_module()
+class SampleSkipFrames:
+    """sample skipped frames from the video clip.
 
+    Required keys are "total_frames", "start_index" , added or modified keys
+    are "frame_inds", "clip_len", "frame_interval" and "num_clips".
+
+    Args:
+        clip_len (int): Frames of each sampled output clip.
+        num_clips (int): Number of clips to be sampled. Default: 1.
+        seed (int): The random seed used during test time. Default: 255.
+    """
+
+    def __init__(self,
+                 clip_len,
+                 num_clips=1,
+                 seed=255,
+                 **deprecated_kwargs):
+
+        self.clip_len = clip_len
+        self.num_clips = num_clips
+        self.seed = seed
+        if len(deprecated_kwargs):
+            warning_r0('[SampleSkipFrames] The following args has been deprecated: ')
+            for k, v in deprecated_kwargs.items():
+                warning_r0(f'Arg name: {k}; Arg value: {v}')
+
+    def __call__(self, results):
+        num_frames = results['total_frames']
+        if results.get('test_mode', False):
+            selected_index = 0
+            inds = np.arange(results['usable_indices'][selected_index], results['usable_indices'][selected_index]+(self.clip_len*3), 1, dtype=int)
+            inds = inds[::3]
+        else:
+            selected_index = torch.randint(0, results['usable_indices'].size, (1,)).item()
+            inds = np.arange(results['usable_indices'][selected_index], results['usable_indices'][selected_index]+(self.clip_len*3), 1, dtype=int)
+            inds = inds[::3]
+
+        if 'keypoint' in results:
+            kp = results['keypoint']
+            assert num_frames == kp.shape[1]
+        
+        results['frame_inds'] = inds.astype(int)
+        results['clip_len'] = self.clip_len
+        results['label'] = int(results['usable_label'][selected_index])-1
+        results['frame_interval'] = None
+        results['num_clips'] = self.num_clips
+        return results
+
+    def __repr__(self):
+        repr_str = (f'{self.__class__.__name__}('
+                    f'clip_len={self.clip_len}, '
+                    f'num_clips={self.num_clips}, '
+                    f'seed={self.seed})')
+        return repr_str
+
+@PIPELINES.register_module()
+class SampleSequentialFrames:
+    """sample sequential frames from the video clip using usable_indexes.
+
+    Required keys are "total_frames", "start_index" , added or modified keys
+    are "frame_inds", "clip_len", "frame_interval" and "num_clips".
+
+    Args:
+        clip_len (int): Frames of each sampled output clip.
+        num_clips (int): Number of clips to be sampled. Default: 1.
+        seed (int): The random seed used during test time. Default: 255.
+    """
+
+    def __init__(self,
+                 clip_len,
+                 num_clips=1,
+                 seed=255,
+                 **deprecated_kwargs):
+
+        self.clip_len = clip_len
+        self.num_clips = num_clips
+        self.seed = seed
+        if len(deprecated_kwargs):
+            warning_r0('[UniformSampleFrames] The following args has been deprecated: ')
+            for k, v in deprecated_kwargs.items():
+                warning_r0(f'Arg name: {k}; Arg value: {v}')
+
+    def __call__(self, results):
+        num_frames = results['total_frames']
+        if results.get('test_mode', False):
+            selected_index = 0
+            inds = np.arange(results['usable_indices'][selected_index], results['usable_indices'][selected_index]+self.clip_len, 1, dtype=int)
+        else:
+            selected_index = torch.randint(0, results['usable_indices'].size, (1,)).item()
+            inds = np.arange(results['usable_indices'][selected_index], results['usable_indices'][selected_index]+self.clip_len, 1, dtype=int)
+
+        if 'keypoint' in results:
+            kp = results['keypoint']
+            assert num_frames == kp.shape[1]
+        
+        results['frame_inds'] = inds.astype(int)
+        results['clip_len'] = self.clip_len
+        results['label'] = int(results['usable_label'][selected_index])-1
+        results['frame_interval'] = None
+        results['num_clips'] = self.num_clips
+        return results
+
+    def __repr__(self):
+        repr_str = (f'{self.__class__.__name__}('
+                    f'clip_len={self.clip_len}, '
+                    f'num_clips={self.num_clips}, '
+                    f'seed={self.seed})')
+        return repr_str
+    
+    
 @PIPELINES.register_module()
 class UniformSampleFrames:
     """Uniformly sample frames from the video.
@@ -132,7 +243,6 @@ class UniformSampleFrames:
             inds = self._get_test_clips(num_frames, self.clip_len)
         else:
             inds = self._get_train_clips(num_frames, self.clip_len)
-
         inds = np.mod(inds, num_frames)
         start_index = results['start_index']
         inds = inds + start_index

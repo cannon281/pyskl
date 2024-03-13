@@ -5,7 +5,10 @@ import os.path as osp
 from ..utils import get_root_logger
 from .base import BaseDataset
 from .builder import DATASETS
-
+import random
+import numpy as np
+import math
+from collections import Counter
 
 @DATASETS.register_module()
 class PoseDataset(BaseDataset):
@@ -50,6 +53,7 @@ class PoseDataset(BaseDataset):
                  class_prob=None,
                  memcached=False,
                  mc_cfg=('localhost', 22077),
+                 preprocess_type="",
                  **kwargs):
         modality = 'Pose'
         self.split = split
@@ -82,7 +86,123 @@ class PoseDataset(BaseDataset):
 
         logger = get_root_logger()
         logger.info(f'{len(self)} videos remain after valid thresholding')
+        if(preprocess_type=="sequential"):
+            print("split is ", split)
+            self.clip_length = 144
+            self.skip_length = 20
+            self.model_clip_length = 48
+            self.preprocess_mv(preprocess_type)
+        elif(preprocess_type=="skip"):
+            print("split is ", split)
+            self.clip_length = 164
+            self.skip_length = 20
+            self.model_clip_length = 48
+            self.preprocess_mv(preprocess_type)
 
+
+    def preprocess_mv(self, preprocess_type):
+        """Preprocess long videos with moving window sampling to form small clips."""
+        new_video_infos = []
+        total_valid_indices = 0
+        print("Preprocess type ", preprocess_type)
+        for sample in self.video_infos:            
+            total_frames = sample['total_frames']
+            labels = sample['labels']
+            current_index = 0
+            while True:
+                if (current_index>=total_frames):
+                    break
+                #if labels[current_index] == 0:
+                #    current_index += 1
+                #    continue
+                
+                end_index = min(current_index + self.clip_length, total_frames)
+                if (end_index==total_frames):
+                    break
+                frames_to_sample = end_index-current_index
+                if frames_to_sample>=self.clip_length:
+                    # Sample keypoints
+                    new_keypoints = sample['keypoint'][:, current_index:end_index, :, :]
+                    new_keypoints_score = sample['keypoint_score'][:, current_index:end_index, :]
+                    new_labels = sample['labels'][current_index:end_index]
+                    new_keypoints_score = np.nan_to_num(new_keypoints_score)
+                    new_keypoints_score = np.clip(new_keypoints_score, 0, 1)
+                    
+                    if Counter(new_labels).most_common(1)[0][0] == 0:
+                        current_index = current_index + self.skip_length
+                        continue  # Skip this clip
+                    
+                    non_skip_usable = []
+                    non_skip_usable_label = []
+
+                    for i in range(self.skip_length):
+                        if preprocess_type == "sequential":
+                            label_from_center = self.get_majority_center_label(new_labels[i:self.model_clip_length+i], center_frames=5)
+                            #keypoints_abs_sum = np.abs(new_keypoints[:, i:self.model_clip_length+i, :, :]).sum(axis=(2, 3))
+                            keypoints_abs_sum = np.sum(new_keypoints[:, i:self.model_clip_length+i, :, :] == 0)
+                        else:
+                            label_from_center = self.get_majority_center_label(new_labels[i:(self.model_clip_length*3)+i][::3], center_frames=5)
+                            #keypoints_abs_sum = np.abs(new_keypoints[:, i:(self.model_clip_length*3)+i, :, :][:, ::3, :, :]).sum(axis=(2, 3))
+                            keypoints_abs_sum = np.sum(new_keypoints[:, i:(self.model_clip_length*3)+i, :, :][:, ::3, :, :] == 0)
+                    
+                        #if label_from_center != 0 and int(np.sum(keypoints_abs_sum == 0)) <= 5:
+                        if label_from_center != 0 and keypoints_abs_sum <= 170:
+                            non_skip_usable.append(i)
+                            non_skip_usable_label.append(label_from_center)
+                    new_keypoints_score = new_keypoints_score.astype('float16')
+
+                    if len(non_skip_usable) > 0:
+                        total_valid_indices = total_valid_indices + len(non_skip_usable)
+                        if self.split == "sub_test":
+                            for idx, x in enumerate(non_skip_usable):  #seperate each usable index as a sample for testing
+                                new_sample = {
+                                    'frame_dir': sample['frame_dir'],
+                                    'labels': new_labels,
+                                    'img_shape': sample['img_shape'],
+                                    'original_shape': sample['img_shape'],
+                                    'total_frames': frames_to_sample,
+                                    'usable_indices': np.array([non_skip_usable[idx]]),
+                                    'label': (int(non_skip_usable_label[idx])-1),
+                                    'usable_label': np.array([non_skip_usable_label[idx]]),
+                                    'keypoint': new_keypoints,
+                                    'keypoint_score': new_keypoints_score
+                                }
+                                new_video_infos.append(new_sample)
+                        else:
+                            new_sample = {
+                                'frame_dir': sample['frame_dir'],
+                                'labels': new_labels,
+                                'img_shape': sample['img_shape'],
+                                'original_shape': sample['img_shape'],
+                                'total_frames': frames_to_sample,
+                                'usable_indices': np.array(non_skip_usable),
+                                'usable_label': np.array(non_skip_usable_label),
+                                'keypoint': new_keypoints,
+                                'keypoint_score': new_keypoints_score
+                            }
+                            new_video_infos.append(new_sample)               
+                    current_index = current_index + self.skip_length
+                else:
+                    break
+        self.video_infos = new_video_infos
+        print("Dataset sample length", len(self.video_infos))
+        print("Total valid indices", total_valid_indices)
+
+
+    def get_majority_center_label(self, labels, center_frames):
+        # Calculate the start and end indices for the center frames
+        start = len(labels) // 2 - center_frames // 2
+        end = start + center_frames
+
+        # Extract the center labels
+        center_labels = labels[start:end]
+
+        # Count the frequency of each label in the center frames
+        label_counts = Counter(center_labels)
+
+        # Return the most common label
+        return label_counts.most_common(1)[0][0]
+        
     def load_annotations(self):
         """Load annotation file to get video information."""
         assert self.ann_file.endswith('.pkl')
