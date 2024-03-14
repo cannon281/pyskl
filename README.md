@@ -15,12 +15,12 @@ pip install -e .
 ```
 ## Data preparation to train
 
-We preprocess our Safer-Activities dataset to generate skeleton keypoints in pkl format, download the pkl keypoints from this link.
+We preprocess our Safer-Activities dataset to generate skeleton keypoints in pkl format, download the pkl keypoints from this link [PKL-files](https://drive.google.com/file/d/1SHKJDlHRIG36eWcjQRplsNQ9jGWrxbMp).
 Place the all pkl files inside "Pkl" folder in the project root directory
 
 ## Weight file preparation to test
 
-We provide the final model weight file generated during training, download the pth files from this link.
+We provide the final model weight file generated during training, download the pth files from this link [weight-files](https://drive.google.com/drive/folders/1h2_YXDFekU3Uoer3m3YXu4hLaOEo1iyL).
 Place the all pth files inside "weights" folder in the project root directory.
 
 ## Training & Testing
