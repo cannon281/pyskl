@@ -20,11 +20,11 @@ model = dict(
     test_cfg=dict(average_clips='prob'))
 
 dataset_type = 'PoseDataset'
-ann_file = 'Pkl/dataset_train_test_ntu_format.pkl'
+ann_file = 'Pkl/aic_wheelchair_dataset.pkl'
 left_kp = [1, 3, 5, 7, 9, 11, 13, 15]
 right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
 train_pipeline = [
-    dict(type='SampleSkipFrames', clip_len=48),
+    dict(type='SampleSequentialFrames', clip_len=48),
     dict(type='PoseDecode'),
     dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
     dict(type='Resize', scale=(-1, 64)),
@@ -37,7 +37,7 @@ train_pipeline = [
     dict(type='ToTensor', keys=['imgs', 'label'])
 ]
 val_pipeline = [
-    dict(type='SampleSkipFrames', clip_len=48),
+    dict(type='SampleSequentialFrames', clip_len=48),
     dict(type='PoseDecode'),
     dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
     dict(type='Resize', scale=(64, 64), keep_ratio=False),
@@ -47,7 +47,7 @@ val_pipeline = [
     dict(type='ToTensor', keys=['imgs'])
 ]
 test_pipeline = [
-    dict(type='SampleSkipFrames', clip_len=48),
+    dict(type='SampleSequentialFrames', clip_len=48),
     dict(type='PoseDecode'),
     dict(type='PoseCompact', hw_ratio=1., allow_imgpad=True),
     dict(type='Resize', scale=(64, 64), keep_ratio=False),
@@ -63,17 +63,17 @@ data = dict(
     train=dict(
         type='RepeatDataset',
         times=5,
-        dataset=dict(type=dataset_type, ann_file=ann_file, split='sub_train', pipeline=train_pipeline, preprocess_type="skip")),
-    val=dict(type=dataset_type, ann_file=ann_file, split='sub_test', pipeline=val_pipeline, preprocess_type="skip"),
-    test=dict(type=dataset_type, ann_file=ann_file, split='sub_test', pipeline=test_pipeline, preprocess_type="skip"))
+        dataset=dict(type=dataset_type, ann_file=ann_file, split='sub_train', pipeline=train_pipeline, preprocess_type="sequential")),
+    val=dict(type=dataset_type, ann_file=ann_file, split='sub_test', pipeline=val_pipeline, preprocess_type="sequential"),
+    test=dict(type=dataset_type, ann_file=ann_file, split='sub_test', pipeline=test_pipeline, preprocess_type="sequential"))
 # optimizer
 optimizer = dict(type='SGD', lr=0.2, momentum=0.9, weight_decay=0.0003)  # this lr is used for 8 gpus
 optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
 # learning policy
 lr_config = dict(policy='CosineAnnealing', by_epoch=False, min_lr=0)
-total_epochs = 44
+total_epochs = 32
 checkpoint_config = dict(interval=1)
 evaluation = dict(interval=1, metrics=['top_k_accuracy', 'mean_class_accuracy'], topk=(1, 5))
 log_config = dict(interval=20, hooks=[dict(type='TextLoggerHook')])
 log_level = 'INFO'
-work_dir = './work_dirs/posec3d/safer_activity_xsub/joint_skip'
+work_dir = './work_dirs/posec3d/safer_activity_xsub/wheelchair'

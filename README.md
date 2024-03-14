@@ -1,29 +1,50 @@
 # PYSKL
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/revisiting-skeleton-based-action-recognition/skeleton-based-action-recognition-on-ntu-rgbd)](https://paperswithcode.com/sota/skeleton-based-action-recognition-on-ntu-rgbd?p=revisiting-skeleton-based-action-recognition)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/dg-stgcn-dynamic-spatial-temporal-modeling/skeleton-based-action-recognition-on-ntu-rgbd-1)](https://paperswithcode.com/sota/skeleton-based-action-recognition-on-ntu-rgbd-1?p=dg-stgcn-dynamic-spatial-temporal-modeling)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/revisiting-skeleton-based-action-recognition/skeleton-based-action-recognition-on-kinetics)](https://paperswithcode.com/sota/skeleton-based-action-recognition-on-kinetics?p=revisiting-skeleton-based-action-recognition)
-[[**Report**]](https://arxiv.org/abs/2205.09443)
-
 PYSKL is a toolbox focusing on action recognition based on **SK**e**L**eton data with **PY**Torch. Various algorithms will be supported for skeleton-based action recognition. We build this project based on the OpenSource Project [MMAction2](https://github.com/open-mmlab/mmaction2).
 
-This repo is the official implementation of [PoseConv3D](https://arxiv.org/abs/2104.13586) and [STGCN++](https://github.com/kennymckormick/pyskl/tree/main/configs/stgcn%2B%2B).
+The Safer-Activies dataset is trained using the PYSKL toolbox. The instructions to train and test Safer-Activies is listed below.
 
-<div id="wrapper" align="center">
-<figure>
-  <img src="https://user-images.githubusercontent.com/34324155/123989146-2ecae680-d9fb-11eb-916b-b9db5563a9e5.gif" width="520px">&emsp;
-  <img src="https://user-images.githubusercontent.com/34324155/218010909-ccfc89f0-9ed4-4b04-b38d-af7ffe49d2cd.gif" width="290px"><br>
-  <p style="font-size:1.2vw;">Left: Skeleton-base Action Recognition Results on NTU-RGB+D-120; Right: CPU Realtime Skeleton-base Gesture Recognition Results</p>
-</figure>
-</div>
+## Installation
+```shell
+git clone https://github.com/cannon281/pyskl
+cd pyskl
+# This command runs well with conda 22.9.0, if you are running an early conda version and got some errors, try to update your conda first
+conda env create -f pyskl.yaml
+conda activate pyskl
+pip install -e .
+```
+## Data Preparation to train
 
-## Change Log
+We preprocess our Safer-Activies dataset to generate skeleton keypoints in pkl format, download the PKL keypoints from this link.
+Place the all pkl files inside Pkl folder in the project root directory
 
-- Improve skeleton extraction script ([PR](https://github.com/kennymckormick/pyskl/pull/150)). Now it supports non-distributed skeleton extraction and k400-style (**2023-03-20**).
-- Support PyTorch 2.0: when set `--compile` for training/testing scripts and with `torch.__version__ >= 'v2.0.0'` detected, will use `torch.compile` to compile the model before training/testing. Experimental Feature, absolutely no performance warranty (**2023-03-16**).
-- Provide a real-time gesture recognition demo based on skeleton-based action recognition with ST-GCN++, check [Demo](/demo/demo.md) for more details and instructions (**2023-02-10**).
-- Provide [scripts](/examples/inference_speed.ipynb) to estimate the inference speed of each model (**2022-12-30**).
-- Support [RGBPoseConv3D](https://arxiv.org/abs/2104.13586), a two-stream 3D-CNN for action recognition based on RGB & Human Skeleton. Follow the [guide](/configs/rgbpose_conv3d/README.md) to train and test RGBPoseConv3D on NTURGB+D （**2022-12-29**).
+## Weight file Preparation to test
+
+We provide the model weights files generated during training, download the pth files from this link.
+Place the all pth files inside weights folder in the project root directory.
+
+## Training & Testing
+
+You can use following commands for training and testing. Basically, we support distributed training on a single server with multiple GPUs.
+```shell
+# Training
+bash tools/dist_train.sh {config_name} {num_gpus} {other_options}
+# Testing
+bash tools/dist_test.sh {config_name} {checkpoint} {num_gpus} --out {output_file} --eval top_k_accuracy mean_class_accuracy
+```
+The config file paths are as listed below
+
+```shell
+# Non-Wheelchair
+configs/posec3d/safer_activity_xsub/non-wheelchair.py
+# Non-Wheelchair with skip
+configs/posec3d/safer_activity_xsub/non-wheelchair-skip.py
+# Wheelchair
+configs/posec3d/safer_activity_xsub/wheelchair.py
+# Wheelchair with skip
+configs/posec3d/safer_activity_xsub/wheelchair-skip.py
+```
+
 
 ## Supported Algorithms
 
@@ -44,40 +65,11 @@ This repo is the official implementation of [PoseConv3D](https://arxiv.org/abs/2
 - [x] [FineGYM (CVPR 2020)](https://arxiv.org/abs/2004.06704)
 - [x] [Diving48 (ECCV 2018)](https://openaccess.thecvf.com/content_ECCV_2018/papers/Yingwei_Li_RESOUND_Towards_Action_ECCV_2018_paper.pdf)
 
-## Installation
-```shell
-git clone https://github.com/kennymckormick/pyskl.git
-cd pyskl
-# This command runs well with conda 22.9.0, if you are running an early conda version and got some errors, try to update your conda first
-conda env create -f pyskl.yaml
-conda activate pyskl
-pip install -e .
-```
 
 ## Demo
 
 Check [demo.md](/demo/demo.md).
 
-## Data Preparation
-
-We provide HRNet 2D skeletons for every dataset we supported and Kinect 3D skeletons for the NTURGB+D and NTURGB+D 120 dataset. To obtain the human skeleton annotations, you can:
-
-1. Use our pre-processed skeleton annotations: we directly provide the processed skeleton data for all datasets as pickle files (which can be directly used for training and testing), check [Data Doc](/tools/data/README.md) for the download links and descriptions of the annotation format.
-2. For NTURGB+D 3D skeletons, you can download the official annotations from https://github.com/shahroudy/NTURGB-D, and use our [provided script](/tools/data/ntu_preproc.py) to generate the processed pickle files. The generated files are the same with the provided `ntu60_3danno.pkl` and `ntu120_3danno.pkl`. For detailed instructions, follow the [Data Doc](/tools/data/README.md).
-3. We also provide scripts to extract 2D HRNet skeletons from RGB videos, you can follow the [diving48_example](/examples/extract_diving48_skeleton/diving48_example.ipynb) to extract 2D skeletons from an arbitrary RGB video dataset.
-
-You can use [vis_skeleton](/demo/vis_skeleton.ipynb) to visualize the provided skeleton data.
-
-## Training & Testing
-
-You can use following commands for training and testing. Basically, we support distributed training on a single server with multiple GPUs.
-```shell
-# Training
-bash tools/dist_train.sh {config_name} {num_gpus} {other_options}
-# Testing
-bash tools/dist_test.sh {config_name} {checkpoint} {num_gpus} --out {output_file} --eval top_k_accuracy mean_class_accuracy
-```
-For specific examples, please go to the README for each specific algorithm we supported.
 
 ## Citation
 

@@ -20,7 +20,7 @@ model = dict(
     test_cfg=dict(average_clips='prob'))
 
 dataset_type = 'PoseDataset'
-ann_file = 'Pkl/wheelchair/wheelchair_dataset.pkl'
+ann_file = 'Pkl/aic_normal_dataset_no_additional_falls.pkl'
 left_kp = [1, 3, 5, 7, 9, 11, 13, 15]
 right_kp = [2, 4, 6, 8, 10, 12, 14, 16]
 train_pipeline = [
@@ -71,9 +71,9 @@ optimizer = dict(type='SGD', lr=0.2, momentum=0.9, weight_decay=0.0003)  # this 
 optimizer_config = dict(grad_clip=dict(max_norm=40, norm_type=2))
 # learning policy
 lr_config = dict(policy='CosineAnnealing', by_epoch=False, min_lr=0)
-total_epochs = 32
+total_epochs = 44
 checkpoint_config = dict(interval=1)
 evaluation = dict(interval=1, metrics=['top_k_accuracy', 'mean_class_accuracy'], topk=(1, 5))
 log_config = dict(interval=20, hooks=[dict(type='TextLoggerHook')])
 log_level = 'INFO'
-work_dir = './work_dirs/posec3d/safer_activity_xsub/wheelchair_skip_joint'
+work_dir = './work_dirs/posec3d/safer_activity_xsub/non-wheelchair-skip'
