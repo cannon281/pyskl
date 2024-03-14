@@ -2,7 +2,7 @@
 
 PYSKL is a toolbox focusing on action recognition based on **SK**e**L**eton data with **PY**Torch. Various algorithms will be supported for skeleton-based action recognition. We build this project based on the OpenSource Project [MMAction2](https://github.com/open-mmlab/mmaction2).
 
-The Safer-Activies dataset is trained using the PYSKL toolbox. The instructions to train and test Safer-Activies is listed below.
+The Safer-Activities dataset is trained using the PYSKL toolbox. The instructions to train and test PoseC3D on Safer-Activities is listed below.
 
 ## Installation
 ```shell
@@ -13,15 +13,15 @@ conda env create -f pyskl.yaml
 conda activate pyskl
 pip install -e .
 ```
-## Data Preparation to train
+## Data preparation to train
 
-We preprocess our Safer-Activies dataset to generate skeleton keypoints in pkl format, download the PKL keypoints from this link.
-Place the all pkl files inside Pkl folder in the project root directory
+We preprocess our Safer-Activities dataset to generate skeleton keypoints in pkl format, download the pkl keypoints from this link.
+Place the all pkl files inside "Pkl" folder in the project root directory
 
-## Weight file Preparation to test
+## Weight file preparation to test
 
-We provide the model weights files generated during training, download the pth files from this link.
-Place the all pth files inside weights folder in the project root directory.
+We provide the final model weight file generated during training, download the pth files from this link.
+Place the all pth files inside "weights" folder in the project root directory.
 
 ## Training & Testing
 
