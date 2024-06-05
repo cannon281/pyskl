@@ -16,7 +16,8 @@ class MSG3D(nn.Module):
                  num_gcn_scales=13,
                  num_g3d_scales=6,
                  num_person=2,
-                 tcn_dropout=0):
+                 tcn_dropout=0,
+                 pretrained = None):
         super().__init__()
 
         self.graph = Graph(**graph_cfg)
