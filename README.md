@@ -20,8 +20,8 @@ Place the all pkl files inside "Pkl" folder in the project root directory
 
 ## Weight file preparation to test
 
-We provide the final model weight file generated during training, download the pth files from this link [weight-files](https://drive.google.com/drive/u/1/folders/1kOtWbogvpBdXZdMTXnBxo3bZQPV3pX4I).
-Download the folders inside the link (posec3d,msg3d,stgcn++) and place them inside the "weights" folder in the project root directory.
+We provide the final model weight file generated during training, download the weight files from this link [weight-files](https://drive.google.com/drive/u/1/folders/1kOtWbogvpBdXZdMTXnBxo3bZQPV3pX4I).
+Download the folders inside the link (posec3d, msg3d, stgcn++) and place them inside the "weights" folder in the project root directory.
 
 ## Training & Testing
 
@@ -43,6 +43,10 @@ configs/posec3d/safer_activity_xsub/non-wheelchair-skip.py
 configs/posec3d/safer_activity_xsub/wheelchair.py
 # Wheelchair with skip
 configs/posec3d/safer_activity_xsub/wheelchair-skip.py
+
+# Follow the same format for MSG3D and STGCN++
+configs/stgcn++/safer_activity_xsub/..
+configs/msg3d/safer_activity_xsub/..
 ```
 
 
