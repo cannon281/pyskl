@@ -5,6 +5,7 @@ PYSKL is a toolbox focusing on action recognition based on **SK**e**L**eton data
 The Safer-Activities dataset is trained using the PYSKL toolbox. The instructions to train and test PoseC3D on Safer-Activities is listed below.
 
 ## Installation
+
 ```shell
 git clone https://github.com/cannon281/pyskl
 cd pyskl
@@ -13,9 +14,10 @@ conda env create -f pyskl.yaml
 conda activate pyskl
 pip install -e .
 ```
+
 ## Data preparation to train
 
-We preprocess our Safer-Activities dataset to generate skeleton keypoints in pkl format, download the pkl keypoints from this link [PKL-files](https://drive.google.com/file/d/1SHKJDlHRIG36eWcjQRplsNQ9jGWrxbMp).
+We preprocess our Safer-Activities dataset to generate skeleton keypoints in pkl format, download the pkl keypoints from this link [PKL-files](https://drive.google.com/file/d/10eY5oPk-LOqwCM2e1uRqGMsKDpxOL00_/view?usp=drive_link).
 Place the all pkl files inside "Pkl" folder in the project root directory
 
 ## Weight file preparation to test
@@ -26,54 +28,73 @@ Download the folders inside the link (posec3d, msg3d, stgcn++) and place them in
 ## Training & Testing
 
 You can use following commands for training and testing. Basically, we support distributed training on a single server with multiple GPUs.
+
 ```shell
 # Training
 bash tools/dist_train.sh {config_name} {num_gpus} {other_options}
 # Testing
 bash tools/dist_test.sh {config_name} {checkpoint} {num_gpus} --out {output_file} --eval top_k_accuracy mean_class_accuracy
 ```
-The config file paths are as listed below
+
+The config file paths are as listed below.
+
+### 2D Pose Configs
 
 ```shell
-# Non-Wheelchair
+# PoseC3D
 configs/posec3d/safer_activity_xsub/non-wheelchair.py
-# Non-Wheelchair with skip
 configs/posec3d/safer_activity_xsub/non-wheelchair-skip.py
-# Wheelchair
 configs/posec3d/safer_activity_xsub/wheelchair.py
-# Wheelchair with skip
 configs/posec3d/safer_activity_xsub/wheelchair-skip.py
 
-# Follow the same format for MSG3D and STGCN++
+# Follow the same format for DG-STGCN, MSG3D, and STGCN++
+configs/dgstgcn/safer_activity_xsub/..
 configs/stgcn++/safer_activity_xsub/..
 configs/msg3d/safer_activity_xsub/..
 ```
 
+### 3D Pose Configs
+
+3D configs use MotionAGFormer-lifted 3D keypoints (`aic_normal_dataset_with_3d.pkl`) with `use_3d_keypoints=True`. To generate these keypoints from the 2D pkl files, see [`preprocessing/3d_pose_lifting/`](../../preprocessing/3d_pose_lifting/). Download the 3D pkl keypoints from [this link](https://drive.google.com/file/d/10eY5oPk-LOqwCM2e1uRqGMsKDpxOL00_/view?usp=drive_link). Pretrained 3D skeleton model weights can be downloaded from [this link](https://drive.google.com/drive/folders/1No7_vuKX49vVN6nmT1_9_zYfL76TW8Os?usp=drive_link).
+
+```shell
+# DG-STGCN 3D
+configs/dgstgcn/safer_activity_xsub/non-wheelchair-3d.py
+configs/dgstgcn/safer_activity_xsub/wheelchair-3d.py
+configs/dgstgcn/safer_activity_xsub/wheelchair-skip-3d.py
+
+# MSG3D 3D
+configs/msg3d/safer_activity_xsub/non-wheelchair-3d.py
+configs/msg3d/safer_activity_xsub/wheelchair-3d.py
+configs/msg3d/safer_activity_xsub/non-wheelchair-skip-3d.py
+
+# STGCN++ 3D
+configs/stgcn++/safer_activity_xsub/non-wheelchair-3d.py
+configs/stgcn++/safer_activity_xsub/wheelchair-3d.py
+```
 
 ## Supported Algorithms
 
-- [x] [DG-STGCN (Arxiv)](https://arxiv.org/abs/2210.05895) [[MODELZOO](/configs/dgstgcn/README.md)]
-- [x] [ST-GCN (AAAI 2018)](https://arxiv.org/abs/1801.07455) [[MODELZOO](/configs/stgcn/README.md)]
-- [x] [ST-GCN++ (ACMMM 2022)](https://arxiv.org/abs/2205.09443) [[MODELZOO](/configs/stgcn++/README.md)]
-- [x] [PoseConv3D (CVPR 2022 Oral)](https://arxiv.org/abs/2104.13586) [[MODELZOO](/configs/posec3d/README.md)]
-- [x] [AAGCN (TIP)](https://arxiv.org/abs/1912.06971) [[MODELZOO](/configs/aagcn/README.md)]
-- [x] [MS-G3D (CVPR 2020 Oral)](https://arxiv.org/abs/2003.14111) [[MODELZOO](/configs/msg3d/README.md)]
-- [x] [CTR-GCN (ICCV 2021)](https://arxiv.org/abs/2107.12213) [[MODELZOO](/configs/ctrgcn/README.md)]
+- [X] [DG-STGCN (Arxiv)](https://arxiv.org/abs/2210.05895) [[MODELZOO](/configs/dgstgcn/README.md)]
+- [X] [ST-GCN (AAAI 2018)](https://arxiv.org/abs/1801.07455) [[MODELZOO](/configs/stgcn/README.md)]
+- [X] [ST-GCN++ (ACMMM 2022)](https://arxiv.org/abs/2205.09443) [[MODELZOO](/configs/stgcn++/README.md)]
+- [X] [PoseConv3D (CVPR 2022 Oral)](https://arxiv.org/abs/2104.13586) [[MODELZOO](/configs/posec3d/README.md)]
+- [X] [AAGCN (TIP)](https://arxiv.org/abs/1912.06971) [[MODELZOO](/configs/aagcn/README.md)]
+- [X] [MS-G3D (CVPR 2020 Oral)](https://arxiv.org/abs/2003.14111) [[MODELZOO](/configs/msg3d/README.md)]
+- [X] [CTR-GCN (ICCV 2021)](https://arxiv.org/abs/2107.12213) [[MODELZOO](/configs/ctrgcn/README.md)]
 
 ## Supported Skeleton Datasets
 
-- [x] [NTURGB+D (CVPR 2016)](https://arxiv.org/abs/1604.02808) and [NTURGB+D 120 (TPAMI 2019)](https://arxiv.org/abs/1905.04757)
-- [x] [Kinetics 400 (CVPR 2017)](https://arxiv.org/abs/1705.06950)
-- [x] [UCF101 (ArXiv 2012)](https://arxiv.org/pdf/1212.0402.pdf)
-- [x] [HMDB51 (ICCV 2021)](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6126543)
-- [x] [FineGYM (CVPR 2020)](https://arxiv.org/abs/2004.06704)
-- [x] [Diving48 (ECCV 2018)](https://openaccess.thecvf.com/content_ECCV_2018/papers/Yingwei_Li_RESOUND_Towards_Action_ECCV_2018_paper.pdf)
-
+- [X] [NTURGB+D (CVPR 2016)](https://arxiv.org/abs/1604.02808) and [NTURGB+D 120 (TPAMI 2019)](https://arxiv.org/abs/1905.04757)
+- [X] [Kinetics 400 (CVPR 2017)](https://arxiv.org/abs/1705.06950)
+- [X] [UCF101 (ArXiv 2012)](https://arxiv.org/pdf/1212.0402.pdf)
+- [X] [HMDB51 (ICCV 2021)](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6126543)
+- [X] [FineGYM (CVPR 2020)](https://arxiv.org/abs/2004.06704)
+- [X] [Diving48 (ECCV 2018)](https://openaccess.thecvf.com/content_ECCV_2018/papers/Yingwei_Li_RESOUND_Towards_Action_ECCV_2018_paper.pdf)
 
 ## Demo
 
 Check [demo.md](/demo/demo.md).
-
 
 ## Citation
 

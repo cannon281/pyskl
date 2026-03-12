@@ -154,7 +154,7 @@ def mean_average_precision(scores, labels):
             sample.
 
     Returns:
-        np.float: The mean average precision.
+        float: The mean average precision.
     """
     results = []
     scores = np.stack(scores).T

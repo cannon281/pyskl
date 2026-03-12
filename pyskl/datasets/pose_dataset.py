@@ -41,6 +41,7 @@ class PoseDataset(BaseDataset):
             fetch 'keypoint' from memcached. Default: False.
         mc_cfg (tuple): The config for memcached client, only applicable if `memcached==True`.
             Default: ('localhost', 22077).
+        use_3d_keypoints (bool): Whether to use 3D keypoints instead of 2D. Default: False.
         **kwargs: Keyword arguments for 'BaseDataset'.
     """
 
@@ -54,9 +55,11 @@ class PoseDataset(BaseDataset):
                  memcached=False,
                  mc_cfg=('localhost', 22077),
                  preprocess_type="",
+                 use_3d_keypoints=False,
                  **kwargs):
         modality = 'Pose'
         self.split = split
+        self.use_3d_keypoints = use_3d_keypoints
 
         super().__init__(
             ann_file, pipeline, start_index=0, modality=modality, memcached=memcached, mc_cfg=mc_cfg, **kwargs)
@@ -86,47 +89,58 @@ class PoseDataset(BaseDataset):
 
         logger = get_root_logger()
         logger.info(f'{len(self)} videos remain after valid thresholding')
-        if(preprocess_type=="sequential"):
-            print("split is ", split)
+        
+        if preprocess_type == "sequential":
+            logger.info(f"Using sequential preprocessing with 3D keypoints: {self.use_3d_keypoints}")
             self.clip_length = 144
             self.skip_length = 20
             self.model_clip_length = 48
             self.preprocess_mv(preprocess_type)
-        elif(preprocess_type=="skip"):
-            print("split is ", split)
+        elif preprocess_type == "skip":
+            logger.info(f"Using skip preprocessing with 3D keypoints: {self.use_3d_keypoints}")
             self.clip_length = 164
             self.skip_length = 20
             self.model_clip_length = 48
             self.preprocess_mv(preprocess_type)
 
-
     def preprocess_mv(self, preprocess_type):
         """Preprocess long videos with moving window sampling to form small clips."""
         new_video_infos = []
         total_valid_indices = 0
-        print("Preprocess type ", preprocess_type)
+        
+        logger = get_root_logger()
+        logger.info(f"Preprocess type: {preprocess_type}")
+        logger.info(f"Using 3D keypoints: {self.use_3d_keypoints}")
+        
         for sample in self.video_infos:            
             total_frames = sample['total_frames']
             labels = sample['labels']
             current_index = 0
+            
             while True:
-                if (current_index>=total_frames):
+                if current_index >= total_frames:
                     break
-                #if labels[current_index] == 0:
-                #    current_index += 1
-                #    continue
                 
                 end_index = min(current_index + self.clip_length, total_frames)
-                if (end_index==total_frames):
+                if end_index == total_frames:
                     break
-                frames_to_sample = end_index-current_index
-                if frames_to_sample>=self.clip_length:
+                    
+                frames_to_sample = end_index - current_index
+                if frames_to_sample >= self.clip_length:
                     # Sample keypoints
                     new_keypoints = sample['keypoint'][:, current_index:end_index, :, :]
-                    new_keypoints_score = sample['keypoint_score'][:, current_index:end_index, :]
+                    
+                    if self.use_3d_keypoints:
+                        # For 3D keypoints, we don't need keypoint_score
+                        # Create dummy scores for compatibility (won't be used)
+                        new_keypoints_score = np.ones((new_keypoints.shape[0], new_keypoints.shape[1], new_keypoints.shape[2]), dtype='float16')
+                    else:
+                        # For 2D keypoints, use the actual scores
+                        new_keypoints_score = sample['keypoint_score'][:, current_index:end_index, :]
+                        new_keypoints_score = np.nan_to_num(new_keypoints_score)
+                        new_keypoints_score = np.clip(new_keypoints_score, 0, 1)
+                    
                     new_labels = sample['labels'][current_index:end_index]
-                    new_keypoints_score = np.nan_to_num(new_keypoints_score)
-                    new_keypoints_score = np.clip(new_keypoints_score, 0, 1)
                     
                     if Counter(new_labels).most_common(1)[0][0] == 0:
                         current_index = current_index + self.skip_length
@@ -138,23 +152,23 @@ class PoseDataset(BaseDataset):
                     for i in range(self.skip_length):
                         if preprocess_type == "sequential":
                             label_from_center = self.get_majority_center_label(new_labels[i:self.model_clip_length+i], center_frames=5)
-                            #keypoints_abs_sum = np.abs(new_keypoints[:, i:self.model_clip_length+i, :, :]).sum(axis=(2, 3))
                             keypoints_abs_sum = np.sum(new_keypoints[:, i:self.model_clip_length+i, :, :] == 0)
                         else:
                             label_from_center = self.get_majority_center_label(new_labels[i:(self.model_clip_length*3)+i][::3], center_frames=5)
-                            #keypoints_abs_sum = np.abs(new_keypoints[:, i:(self.model_clip_length*3)+i, :, :][:, ::3, :, :]).sum(axis=(2, 3))
                             keypoints_abs_sum = np.sum(new_keypoints[:, i:(self.model_clip_length*3)+i, :, :][:, ::3, :, :] == 0)
                     
-                        #if label_from_center != 0 and int(np.sum(keypoints_abs_sum == 0)) <= 5:
-                        if label_from_center != 0 and keypoints_abs_sum <= 170:
+                        # Adjust threshold for 3D keypoints (3D has 3 coords vs 2 for 2D + confidence)
+                        threshold = 255 if self.use_3d_keypoints else 170
+                        if label_from_center != 0 and keypoints_abs_sum <= threshold:
                             non_skip_usable.append(i)
                             non_skip_usable_label.append(label_from_center)
+                    
                     new_keypoints_score = new_keypoints_score.astype('float16')
 
                     if len(non_skip_usable) > 0:
                         total_valid_indices = total_valid_indices + len(non_skip_usable)
                         if self.split == "sub_test":
-                            for idx, x in enumerate(non_skip_usable):  #seperate each usable index as a sample for testing
+                            for idx, x in enumerate(non_skip_usable):  # separate each usable index as a sample for testing
                                 new_sample = {
                                     'frame_dir': sample['frame_dir'],
                                     'labels': new_labels,
@@ -164,9 +178,11 @@ class PoseDataset(BaseDataset):
                                     'usable_indices': np.array([non_skip_usable[idx]]),
                                     'label': (int(non_skip_usable_label[idx])-1),
                                     'usable_label': np.array([non_skip_usable_label[idx]]),
-                                    'keypoint': new_keypoints,
-                                    'keypoint_score': new_keypoints_score
+                                    'keypoint': new_keypoints
                                 }
+                                # Only add keypoint_score for 2D keypoints
+                                if not self.use_3d_keypoints:
+                                    new_sample['keypoint_score'] = new_keypoints_score
                                 new_video_infos.append(new_sample)
                         else:
                             new_sample = {
@@ -177,17 +193,19 @@ class PoseDataset(BaseDataset):
                                 'total_frames': frames_to_sample,
                                 'usable_indices': np.array(non_skip_usable),
                                 'usable_label': np.array(non_skip_usable_label),
-                                'keypoint': new_keypoints,
-                                'keypoint_score': new_keypoints_score
+                                'keypoint': new_keypoints
                             }
+                            # Only add keypoint_score for 2D keypoints
+                            if not self.use_3d_keypoints:
+                                new_sample['keypoint_score'] = new_keypoints_score
                             new_video_infos.append(new_sample)               
                     current_index = current_index + self.skip_length
                 else:
                     break
+                    
         self.video_infos = new_video_infos
-        print("Dataset sample length", len(self.video_infos))
-        print("Total valid indices", total_valid_indices)
-
+        logger.info(f"Dataset sample length: {len(self.video_infos)}")
+        logger.info(f"Total valid indices: {total_valid_indices}")
 
     def get_majority_center_label(self, labels, center_frames):
         # Calculate the start and end indices for the center frames
@@ -217,10 +235,34 @@ class PoseDataset(BaseDataset):
             split = set(split[self.split])
             data = [x for x in data if x[identifier] in split]
 
+        logger = get_root_logger()
+        
         for item in data:
             # Sometimes we may need to load anno from the file
             if 'filename' in item:
                 item['filename'] = osp.join(self.data_prefix, item['filename'])
             if 'frame_dir' in item:
                 item['frame_dir'] = osp.join(self.data_prefix, item['frame_dir'])
+            
+            # Handle 3D keypoints if specified
+            if self.use_3d_keypoints:
+                if 'keypoint_3d' in item:
+                    # Replace 2D keypoints with 3D keypoints
+                    kp_3d = item['keypoint_3d']
+                    
+                    # Convert NaN to zeros to prevent NaN losses
+                    # The existing filtering logic will handle windows with too many zeros
+                    if np.any(np.isnan(kp_3d)):
+                        logger.debug(f"Converting NaN to zeros in 3D keypoints for {item.get('frame_dir', 'unknown')}")
+                        kp_3d = np.nan_to_num(kp_3d, nan=0.0, posinf=0.0, neginf=0.0)
+                    
+                    item['keypoint'] = kp_3d
+                    # Remove keypoint_score to avoid issues with pipelines that expect 2D
+                    item.pop('keypoint_score', None)
+                    
+                    logger.debug(f"Using 3D keypoints for {item.get('frame_dir', 'unknown')}: "
+                               f"keypoint shape={item['keypoint'].shape}")
+                else:
+                    logger.warning(f"3D keypoints requested but 'keypoint_3d' not found in {item.get('frame_dir', 'unknown')}")
+        
         return data
